@@ -7,6 +7,15 @@ const shouldProcess = (pr) => {
   return !!pr.merged && isMasterPush(pr);
 };
 
+const createMdMessage = (pr) => {
+  return {
+    'owner': pr.head.repo.owner.login,
+    'repo': pr.head.repo.name,
+    'number': pr.number,
+    'body': 'As you have made changes in .md files. Stay tuned, TechAtenea is shuttling your changes! 🚀🎉 '
+  }
+}
+
 module.exports = app => {
   // Your code here
   app.log('Yay, the app was loaded!')
@@ -22,16 +31,23 @@ module.exports = app => {
       }));
 
       const hasMdChanges = compare.data.files.some(file => file.filename.endsWith('.md'));
-      // Parameters for the status API
-      const params = {
-        sha: pr.head.sha,
-        context: 'testTechAteneaApp',
-        state: hasMdChanges ? 'success' : 'pending',
-        description: `Your commit contains mdChanges`
+
+      if (hasMdChanges) {
+        context.github.issues.createComment(createMdMessage(pr))
       }
 
+
+      // Parameters for the status API
+      // const params = {
+      //   sha: pr.head.sha,
+      //   context: 'testTechAteneaApp',
+      //   state: hasMdChanges ? 'success' : 'pending',
+      //   description: `Your commit contains mdChanges`
+      // }
+
       // Create the status
-      return context.github.repos.createStatus(context.repo(params));
+      // context.log('Adding status')
+      // return context.github.repos.createStatus(context.repo(params));
     }
 
     // const issueComment = context.issue({ body: 'Thanks for opening this issue!' })
