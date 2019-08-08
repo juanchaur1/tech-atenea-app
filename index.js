@@ -24,7 +24,7 @@ module.exports = app => {
       const hasMdChanges = compare.data.files.some(file => file.filename.endsWith('.md'));
       // Parameters for the status API
       const params = {
-        // sha: pr.base.sha,
+        sha: pr.head.sha,
         context: 'testTechAteneaApp',
         state: hasMdChanges ? 'success' : 'pending',
         description: `Your commit contains mdChanges`
