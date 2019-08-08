@@ -1,22 +1,43 @@
 
+const isMasterPush = (pr) => {
+  return pr.base.ref === 'master';
+}
+
+const shouldProcess = (pr) => {
+  return !!pr.merged && isMasterPush(pr);
+};
+
 module.exports = app => {
   // Your code here
   app.log('Yay, the app was loaded!')
 
   app.on('pull_request.closed', async context => {
-    app.log(context)
+    // app.log(context)
+    const pr = context.payload.pull_request;
 
-    const headRepoId = context.payload.pull_request.head.repo.id
-    const baseRepoId = context.payload.pull_request.base.repo.id
+    if (shouldProcess(pr)) {
+      const compare = await context.github.repos.compareCommits(context.repo({
+        base: pr.base.sha,
+        head: pr.head.sha
+      }));
 
-    app.log(`HeadRepoId: ${headRepoId}`)
-    app.log(`baseRepoId: ${baseRepoId}`)
+      app.log(compare.data);
 
+      const hasMdChanges = compare.data.files.some(file => file.filename.endsWith('.md'));
+      // Parameters for the status API
+      const params = {
+        sha: pr.head.sha,
+        context: 'BATMAN',
+        state: hasMdChanges ? 'success' : 'failure',
+        description: `Your commit contains mdChanges`
+      }
 
-    if (!context.payload.pull_request.merged) {
-      context.log.info(`PR was closed but not merged. Keeping`)
+      // Create the status
+      return context.github.repos.createStatus(context.repo(params));
     }
-    
+
+    app.log('PR not merged to master');
+
     // const issueComment = context.issue({ body: 'Thanks for opening this issue!' })
     // return context.github.issues.createComment(issueComment)
   })
