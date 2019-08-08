@@ -21,13 +21,11 @@ module.exports = app => {
         head: pr.head.sha
       }));
 
-      app.log(compare.data);
-
       const hasMdChanges = compare.data.files.some(file => file.filename.endsWith('.md'));
       // Parameters for the status API
       const params = {
-        sha: pr.head.sha,
-        context: 'BATMAN',
+        sha: pr.base.sha,
+        context: 'testTechAteneaApp',
         state: hasMdChanges ? 'success' : 'failure',
         description: `Your commit contains mdChanges`
       }
@@ -35,8 +33,6 @@ module.exports = app => {
       // Create the status
       return context.github.repos.createStatus(context.repo(params));
     }
-
-    app.log('PR not merged to master');
 
     // const issueComment = context.issue({ body: 'Thanks for opening this issue!' })
     // return context.github.issues.createComment(issueComment)
