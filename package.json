@@ -21,8 +21,7 @@
   },
   "dependencies": {
     "jenkins-api": "^0.3.1",
-    "probot": "^7.2.0",
-    "probot-config": "^1.1.0"
+    "probot": "^7.5.3"
   },
   "devDependencies": {
     "jest": "^24.0.0",

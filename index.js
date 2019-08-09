@@ -1,9 +1,8 @@
-const getConfig = require('probot-config');
 const jenkinsapi = require('jenkins-api');
 
 const techAteneaUri = 'https://bobthebuilder.marfeel.com:8443/view/TechAtenea/job/TechAtenea-Shuttle/';
 const commentMsg = `You've made changes in .md files 🎉.
-Stay tuned, [TechAtenea is shuttling your changes! 🚀](${techAteneaUri})`;
+Stay tuned, [TechAtenea is shuttling your changes!](${techAteneaUri})🚀`;
 
 const isMasterPush = (pr) => {
   return !!pr.merged && pr.base.ref === 'master';
@@ -25,20 +24,22 @@ const shouldProcess = async (context, pr) => {
 module.exports = app => {
   app.log('Yay, the app was loaded!')
 
+  const jenkinsConfig = {
+    user: process.env.JENKINS_USER,
+    token: process.env.JENKINS_TOKEN,
+    base: 'bobthebuilder.marfeel.com:8443'
+  }
+
   const router = app.route('/my-app')
   router.use(require('express').static('public'))
 
   app.on('pull_request.closed', async context => {
-    // Load config from .github/jenkins.yml in the repository
-    const jenkinsConfig = await getConfig(context, 'config.yml')
-
-    // app.log('PR closed request received!')
-    // app.log(jenkinsConfig.close)
-
     const isValid = await shouldProcess(context, context.payload.pull_request);
 
     if (isValid && !!jenkinsConfig) {
       context.github.issues.createComment(context.issue({ body: commentMsg }));
+
+      app.log(`https://${jenkinsConfig.user}:${jenkinsConfig.token}@${jenkinsConfig.base}`);
 
       const jenkins = jenkinsapi.init(`https://${jenkinsConfig.user}:${jenkinsConfig.token}@${jenkinsConfig.base}`);
 
