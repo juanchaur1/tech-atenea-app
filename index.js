@@ -1,56 +1,55 @@
+const getConfig = require('probot-config');
+const jenkinsapi = require('jenkins-api');
+
+const techAteneaUri = 'https://bobthebuilder.marfeel.com:8443/view/TechAtenea/job/TechAtenea-Shuttle/';
+const commentMsg = `You've made changes in .md files 🎉.
+Stay tuned, [TechAtenea is shuttling your changes! 🚀](${techAteneaUri})`;
 
 const isMasterPush = (pr) => {
-  return pr.base.ref === 'master';
+  return !!pr.merged && pr.base.ref === 'master';
 }
 
-const shouldProcess = (pr) => {
-  return !!pr.merged && isMasterPush(pr);
+const hasMdChanges = async (context, pr) => {
+  const compare = await context.github.repos.compareCommits(context.repo({
+    base: pr.base.sha,
+    head: pr.head.sha
+  }));
+
+  return compare.data.files.some(file => file.filename.endsWith('.md'));
+}
+
+const shouldProcess = async (context, pr) => {
+  return isMasterPush(pr) && hasMdChanges(context, pr);
 };
 
-const createMdMessage = (pr) => {
-  return {
-    'owner': pr.head.repo.owner.login,
-    'repo': pr.head.repo.name,
-    'number': pr.number,
-    'body': 'As you have made changes in .md files. Stay tuned, TechAtenea is shuttling your changes! 🚀🎉 '
-  }
-}
-
 module.exports = app => {
-  // Your code here
   app.log('Yay, the app was loaded!')
 
+  const router = app.route('/my-app')
+  router.use(require('express').static('public'))
+
   app.on('pull_request.closed', async context => {
-    // app.log(context)
-    const pr = context.payload.pull_request;
+    // Load config from .github/jenkins.yml in the repository
+    const jenkinsConfig = await getConfig(context, 'config.yml')
 
-    if (shouldProcess(pr)) {
-      const compare = await context.github.repos.compareCommits(context.repo({
-        base: pr.base.sha,
-        head: pr.head.sha
-      }));
+    // app.log('PR closed request received!')
+    // app.log(jenkinsConfig.close)
 
-      const hasMdChanges = compare.data.files.some(file => file.filename.endsWith('.md'));
+    const isValid = await shouldProcess(context, context.payload.pull_request);
 
-      if (hasMdChanges) {
-        context.github.issues.createComment(createMdMessage(pr))
-      }
+    if (isValid && !!jenkinsConfig) {
+      context.github.issues.createComment(context.issue({ body: commentMsg }));
 
+      const jenkins = jenkinsapi.init(`https://${jenkinsConfig.user}:${jenkinsConfig.token}@${jenkinsConfig.base}`);
 
-      // Parameters for the status API
-      // const params = {
-      //   sha: pr.head.sha,
-      //   context: 'testTechAteneaApp',
-      //   state: hasMdChanges ? 'success' : 'pending',
-      //   description: `Your commit contains mdChanges`
-      // }
+      jenkins.build('TechAtenea-Shuttle', (err, data) => {
+        if (err) {
+          app.log(err);
 
-      // Create the status
-      // context.log('Adding status')
-      // return context.github.repos.createStatus(context.repo(params));
+          return app.log(err);
+        }
+        app.log(data)
+      });
     }
-
-    // const issueComment = context.issue({ body: 'Thanks for opening this issue!' })
-    // return context.github.issues.createComment(issueComment)
   })
 }
